@@ -18,6 +18,13 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createClient } from "@/utils/supabase/client";
 
 const chartConfig = {
@@ -31,10 +38,30 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+const filterOptions = [
+  { value: "all", label: "All Season" },
+  { value: "october", label: "October" },
+  { value: "november", label: "November" },
+  { value: "december", label: "December" },
+  { value: "january", label: "January" },
+  { value: "february", label: "February" },
+  { value: "march", label: "March" },
+  { value: "april", label: "April" },
+];
+
+type GameData = {
+  team_game_number: number;
+  date: string;
+  booker: number | null;
+  durant: number | null;
+};
+
 export function AreaChartComponent() {
-  const [chartData, setChartData] = React.useState<any[]>([]);
+  const [chartData, setChartData] = React.useState<GameData[]>([]);
+  const [filteredData, setFilteredData] = React.useState<GameData[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [filter, setFilter] = React.useState("all");
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -46,34 +73,61 @@ export function AreaChartComponent() {
         .order("team_game_number", { ascending: true });
 
       if (error) {
+        console.error("Error fetching data:", error);
         setError("Could not fetch data");
         setIsLoading(false);
+      } else if (!data) {
+        setError("No data received");
+        setIsLoading(false);
       } else {
-        // Process the data for the chart
-        const processedData = data.reduce((acc: any[], game: any) => {
-          const existingGame = acc.find(
-            (g) => g.team_game_number === game.team_game_number,
-          );
-          if (existingGame) {
-            existingGame[game.player_name.split(" ")[1].toLowerCase()] =
-              game.three_points_pct;
-          } else {
-            acc.push({
-              team_game_number: game.team_game_number,
-              [game.player_name.split(" ")[1].toLowerCase()]:
-                game.three_points_pct,
-            });
-          }
-          return acc;
-        }, []);
-
+        const processedData = processData(data);
         setChartData(processedData);
+        setFilteredData(processedData);
         setIsLoading(false);
       }
     };
 
     fetchData();
   }, []);
+
+  React.useEffect(() => {
+    setFilteredData(filterChartData(chartData, filter));
+  }, [chartData, filter]);
+
+  const processData = (data: any[]): GameData[] => {
+    return data.reduce((acc: GameData[], game: any) => {
+      const existingGame = acc.find(
+        (g) => g.team_game_number === game.team_game_number,
+      );
+      const playerKey = game.player_name.split(" ")[1].toLowerCase() as
+        | "booker"
+        | "durant";
+
+      if (existingGame) {
+        existingGame[playerKey] = game.three_points_pct;
+      } else {
+        acc.push({
+          team_game_number: game.team_game_number,
+          date: game.date,
+          booker: playerKey === "booker" ? game.three_points_pct : null,
+          durant: playerKey === "durant" ? game.three_points_pct : null,
+        });
+      }
+      return acc;
+    }, []);
+  };
+
+  const filterChartData = (data: GameData[], filter: string): GameData[] => {
+    if (filter === "all") return data;
+
+    return data.filter((item) => {
+      const date = new Date(item.date);
+      return (
+        date.toLocaleString("default", { month: "long" }).toLowerCase() ===
+        filter
+      );
+    });
+  };
 
   if (isLoading) return <p>Loading chart data...</p>;
   if (error) return <p>Error loading chart data: {error}</p>;
@@ -87,35 +141,47 @@ export function AreaChartComponent() {
             Booker vs Durant throughout the season
           </CardDescription>
         </div>
+        <Select value={filter} onValueChange={setFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select filter" />
+          </SelectTrigger>
+          <SelectContent>
+            {filterOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <ChartContainer
           config={chartConfig}
           className="aspect-auto h-[250px] w-full"
         >
-          <AreaChart data={chartData}>
+          <AreaChart data={filteredData}>
             <defs>
               <linearGradient id="fillBooker" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
-                  stopColor="var(--color-booker)"
+                  stopColor="hsl(var(--chart-1))"
                   stopOpacity={0.8}
                 />
                 <stop
                   offset="95%"
-                  stopColor="var(--color-booker)"
+                  stopColor="hsl(var(--chart-1))"
                   stopOpacity={0.1}
                 />
               </linearGradient>
               <linearGradient id="fillDurant" x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="5%"
-                  stopColor="var(--color-durant)"
+                  stopColor="hsl(var(--chart-2))"
                   stopOpacity={0.8}
                 />
                 <stop
                   offset="95%"
-                  stopColor="var(--color-durant)"
+                  stopColor="hsl(var(--chart-2))"
                   stopOpacity={0.1}
                 />
               </linearGradient>
@@ -123,10 +189,10 @@ export function AreaChartComponent() {
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="team_game_number"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              minTickGap={32}
+              type="number"
+              domain={["dataMin", "dataMax"]}
+              tickCount={10}
+              tickFormatter={(value) => Math.round(value).toString()}
             />
             <YAxis
               tickLine={false}
@@ -148,13 +214,13 @@ export function AreaChartComponent() {
               dataKey="booker"
               type="monotone"
               fill="url(#fillBooker)"
-              stroke="var(--color-booker)"
+              stroke="hsl(var(--chart-1))"
             />
             <Area
               dataKey="durant"
               type="monotone"
               fill="url(#fillDurant)"
-              stroke="var(--color-durant)"
+              stroke="hsl(var(--chart-2))"
             />
             <ChartLegend content={<ChartLegendContent />} />
           </AreaChart>
