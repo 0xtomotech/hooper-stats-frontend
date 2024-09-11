@@ -136,12 +136,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
 
-## 📞 Contact
-
-Your Name - [@your_twitter](https://twitter.com/your_twitter) - email@example.com
-
-Project Link: [https://github.com/yourusername/hooper-stats-frontend](https://github.com/yourusername/hooper-stats-frontend)
-
 ## 🙏 Acknowledgements
 
 - [Next.js](https://nextjs.org/)
