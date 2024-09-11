@@ -106,10 +106,6 @@ The project uses the following environment variables, which should be defined in
 
 Ensure these are set correctly for the application to function properly.
 
-## 🧪 Testing
-
-[Include information about testing here if applicable]
-
 ## 📚 Documentation
 
 For more detailed documentation on the components and their usage, please refer to the comments within each component file.
